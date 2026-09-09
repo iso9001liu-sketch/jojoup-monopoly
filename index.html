@@ -1513,6 +1513,8 @@ function renderBoard() {
   });
 
   renderCenterFunds();
+  // 棋盘重建后立即同步规则键显隐（AI 回合不显示）
+  syncRulesBtn();
 }
 
 function renderCenterFunds() {
@@ -1591,17 +1593,24 @@ function renderFunds() {
   renderCenterFunds();
 }
 
+// AI 回合彻底隐藏规则键（每次棋盘重建后立即同步，避免短暂闪现）
+function syncRulesBtn() {
+  const grBtn = $('game-rules-btn');
+  if (!grBtn) return;
+  const p = game.players && game.players[game.currentPlayerIndex];
+  grBtn.style.display = (p && p.isAI) ? 'none' : 'inline-block';
+}
+
 function renderActions() {
   const rollBtn = $('roll-btn');
   const fundBtn = $('fund-btn');
   const endBtn = $('end-turn-btn');
   const cardBtn = $('card-btn');
-  const grBtn = $('game-rules-btn');
   const p = game.players[game.currentPlayerIndex];
   const isAI = p.isAI;
 
   // AI 回合隐藏规则键，避免弹窗中断 AI 流程；人类回合恢复显示
-  if (grBtn) grBtn.style.display = isAI ? 'none' : 'inline-block';
+  syncRulesBtn();
 
   if (game.phase === 'idle') {
     // 每回合开始：掷骰 + 可选基金交易 + 可选使用卡片（卡片只在卡片屋购买）
@@ -2533,6 +2542,14 @@ function showModal(html) {
 
 function closeModal() {
   $('modal-overlay').classList.remove('active');
+  // 兜底恢复：若弹窗关闭时正值 AI 回合，重新调度 AI 流程，避免游戏停摆
+  if (game && game.players && game.players.length && game.phase !== 'ended') {
+    syncRulesBtn();
+    const cur = game.players[game.currentPlayerIndex];
+    if (cur && cur.isAI && !cur.bankrupt) {
+      scheduleAITurn();
+    }
+  }
 }
 
 function showBuyPropertyModal(p, cell) {

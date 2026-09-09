@@ -2261,20 +2261,24 @@ function aiShouldBuild(p, cell) {
 
 function aiTradeFunds(p) {
   const actions = [];
+  // 投资预算：常规使用现金的 25%（留足买地/盖房/过路费），红卡追涨时可额外动用
+  const investBudget = Math.max(0, Math.floor(p.cash * 0.25));
   game.funds.forEach(f => {
+    const maxAfford = (need) => Math.min(need, Math.max(0, Math.floor(p.cash / Math.max(1, Math.round(f.price)))));
     const held = p.funds[f.id] || 0;
     const last = f.price;
     const prev = f.history.length > 1 ? f.history[f.history.length - 2] : f.price;
     const change = prev > 0 ? (last - prev) / prev : 0;
 
-    // 红卡/黑卡异动状态：趋势跟随
+    // 红卡/黑卡异动状态：趋势跟随（最高优先级）
     if (f.card === 'hong' && f.cardTurns > 0) {
-      // 红卡：上涨趋势，重仓追涨
-      if (p.cash > f.price * 3) {
-        const buyAmt = 3;
+      // 红卡：上涨趋势，重仓追涨（可动用现金的 45%，不止盈）
+      const target = Math.max(held, Math.floor(p.cash * 0.45 / f.price));
+      const buyAmt = maxAfford(target - held);
+      if (buyAmt > 0) {
         p.cash -= buyAmt * f.price;
-        p.funds[f.id] = (p.funds[f.id] || 0) + buyAmt;
-        actions.push(`红卡加仓 ${f.short} ${buyAmt}份`);
+        p.funds[f.id] = held + buyAmt;
+        actions.push(`红卡重仓 ${f.short} +${buyAmt}份`);
       }
       return;
     }
@@ -2289,41 +2293,52 @@ function aiTradeFunds(p) {
     }
 
     if (f.behavior === 'steady_up') {
-      // 满分躺赢基金：稳定上涨，积极建仓并长期持有，涨超35%止盈一半
-      if (held < 3 && p.cash > f.price * 3) {
-        const buyAmt = held === 0 ? 2 : 1;
-        p.cash -= buyAmt * f.price;
-        p.funds[f.id] = (p.funds[f.id] || 0) + buyAmt;
-        actions.push(`加仓买入 ${f.short} ${buyAmt}份`);
-      } else if (held > 0 && f.price >= f.basePrice * 1.35) {
-        const sellAmt = Math.max(1, Math.floor(held / 2));
+      // 满分躺赢基金：稳定上涨，用一半预算建仓长期持有，涨超 35% 止盈 4 成
+      const target = Math.max(3, Math.floor(investBudget / 2 / f.price));
+      if (held < target) {
+        const buyAmt = maxAfford(target - held);
+        if (buyAmt > 0) {
+          p.cash -= buyAmt * f.price;
+          p.funds[f.id] = held + buyAmt;
+          actions.push(`加仓 ${f.short} +${buyAmt}份`);
+        }
+      }
+      if (held > 0 && f.price >= f.basePrice * 1.35) {
+        const sellAmt = Math.max(1, Math.floor(held * 0.4));
         p.cash += sellAmt * f.price;
-        p.funds[f.id] -= sellAmt;
-        actions.push(`止盈卖出 ${f.short} ${sellAmt}份`);
+        p.funds[f.id] = held - sellAmt;
+        actions.push(`止盈 ${f.short} -${sellAmt}份`);
       }
     } else if (f.behavior === 'volatile') {
-      // 考试蹦极基金：大起大落，高抛低吸
-      if (change < -0.05 && p.cash > f.price * 3) {
-        const buyAmt = 3;
-        p.cash -= buyAmt * f.price;
-        p.funds[f.id] = (p.funds[f.id] || 0) + buyAmt;
-        actions.push(`低吸买入 ${f.short} ${buyAmt}份`);
+      // 考试蹦极基金：大起大落，大跌低吸、大涨高抛
+      const target = Math.max(3, Math.floor(investBudget / 2 / f.price));
+      if (change < -0.05 && held < target) {
+        const buyAmt = maxAfford(Math.min(target - held, Math.floor(investBudget / f.price)));
+        if (buyAmt > 0) {
+          p.cash -= buyAmt * f.price;
+          p.funds[f.id] = held + buyAmt;
+          actions.push(`低吸 ${f.short} +${buyAmt}份`);
+        }
       } else if (change > 0.05 && held > 0) {
-        const sellAmt = held >= 2 ? 2 : 1;
+        const sellAmt = Math.max(1, Math.floor(held * 0.4));
         p.cash += sellAmt * f.price;
-        p.funds[f.id] -= sellAmt;
-        actions.push(`高抛卖出 ${f.short} ${sellAmt}份`);
+        p.funds[f.id] = held - sellAmt;
+        actions.push(`高抛 ${f.short} -${sellAmt}份`);
       }
     } else if (f.behavior === 'random_high') {
-      // 顶流塌房基金：大跌抄底、大涨止盈
-      if (change < -0.06 && p.cash > f.price * 10) {
-        p.cash -= f.price;
-        p.funds[f.id] = (p.funds[f.id] || 0) + 1;
-        actions.push(`抄底买入 ${f.short} 1份`);
+      // 顶流塌房基金：大跌抄底、大涨止盈（仓位略小，控制风险）
+      if (change < -0.06 && p.cash > f.price) {
+        const buyAmt = maxAfford(Math.max(1, Math.floor(investBudget / 4 / f.price)));
+        if (buyAmt > 0) {
+          p.cash -= buyAmt * f.price;
+          p.funds[f.id] = held + buyAmt;
+          actions.push(`抄底 ${f.short} +${buyAmt}份`);
+        }
       } else if (change > 0.08 && held > 0) {
-        p.cash += f.price;
-        p.funds[f.id]--;
-        actions.push(`止盈卖出 ${f.short} 1份`);
+        const sellAmt = Math.max(1, Math.floor(held * 0.5));
+        p.cash += sellAmt * f.price;
+        p.funds[f.id] = held - sellAmt;
+        actions.push(`止盈 ${f.short} -${sellAmt}份`);
       }
     }
     // 锦鲤盲盒基金：随机波动，AI 不主动交易

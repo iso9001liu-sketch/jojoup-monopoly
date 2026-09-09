@@ -1111,9 +1111,9 @@ const CARD_EVENTS = [
     } },
   { title: '直冲起点', text: '乘私人飞机直达起点，领 2000 元工资！', type: 'info', movesPlayer: true,
     effect: (g, p) => { const idx = getPriceIndex(); p.cash += Math.round(PASS_GO_BONUS * (1 + (idx - 1) * 0.5)); p.position = 0; } },
-  { title: '包租婆', text: '房东本色！向每位玩家收取 500 元租金。', type: 'good',
+  { title: '包租婆', text: '房东本色！向每位玩家收取 700 元租金。', type: 'good',
     effect: (g, p) => {
-      g.players.forEach(op => { if (op !== p && !op.bankrupt) { const amt = Math.round(500 * getPriceIndex()); op.cash -= amt; p.cash += amt; } });
+      g.players.forEach(op => { if (op !== p && !op.bankrupt) { const amt = Math.round(700 * getPriceIndex()); op.cash -= amt; p.cash += amt; } });
     } },
   { title: '遥控骰子', text: '下次掷骰可自由指定前进步数（2~12）！', type: 'good',
     effect: (g, p) => { p.remoteDice = true; } },
@@ -1255,7 +1255,7 @@ const CARD_SHOP = [
   { card: CARD_EVENTS.find(c => c.title === '免费土地'), price: 4500 },
   { card: CARD_EVENTS.find(c => c.title === '免费盖房'), price: 2500 },
   { card: CARD_EVENTS.find(c => c.title === '直冲起点'), price: 1800 },
-  { card: CARD_EVENTS.find(c => c.title === '包租婆'), price: 2200 },
+  { card: CARD_EVENTS.find(c => c.title === '包租婆'), price: 1500 },
   { card: CARD_EVENTS.find(c => c.title === '购地卡'), price: 6000 },
   { card: CARD_EVENTS.find(c => c.title === '怪兽卡'), price: 5000 },
   { card: CARD_EVENTS.find(c => c.title === '均富卡'), price: 4000 },
@@ -1596,8 +1596,12 @@ function renderActions() {
   const fundBtn = $('fund-btn');
   const endBtn = $('end-turn-btn');
   const cardBtn = $('card-btn');
+  const grBtn = $('game-rules-btn');
   const p = game.players[game.currentPlayerIndex];
   const isAI = p.isAI;
+
+  // AI 回合隐藏规则键，避免弹窗中断 AI 流程；人类回合恢复显示
+  if (grBtn) grBtn.style.display = isAI ? 'none' : 'inline-block';
 
   if (game.phase === 'idle') {
     // 每回合开始：掷骰 + 可选基金交易 + 可选使用卡片（卡片只在卡片屋购买）
@@ -2977,7 +2981,8 @@ function setupStartScreen() {
   $('start-btn').onclick = () => {
     const me = IP_CHARS.find(c => c.id === selectedCharId) || IP_CHARS[0];
     const others = IP_CHARS.filter(c => c.id !== me.id);
-    const aiChars = others.slice(0, selectedPlayerCount - 1);
+    // AI 角色从剩余角色中纯随机抽取，不固定顺序
+    const aiChars = shuffleArr([...others]).slice(0, selectedPlayerCount - 1);
     const names = [me.name, ...aiChars.map(c => c.name)];
     const types = ['human', ...aiChars.map(() => 'ai')];
     const colors = [me.color, ...aiChars.map(c => c.color)];

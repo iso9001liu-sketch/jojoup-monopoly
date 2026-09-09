@@ -957,7 +957,7 @@ const MAX_HOUSES = 4;
 // ---------- 棋盘定义 (24格环形) ----------
 // 位置按顺时针：0=起点, 然后 1-5 上边, 6=右上角, 7-11 右边, 12=右下角, 13-17 下边, 18=左下角, 19-23 左边
 const BOARD_DEFS = [
-  { id: 0,  type: 'start',    name: 'UP研究社', icon: 'UP' },
+  { id: 0,  type: 'start',    name: 'UP研究社', icon: '🚀' },
   { id: 1,  type: 'property', name: '晨读角',   price: 1200, rent: 80,  houseCost: 600 },
   { id: 2,  type: 'property', name: '预习课本铺', price: 1500, rent: 100, houseCost: 750 },
   { id: 3,  type: 'property', name: '知识图书馆', super: true, price: 3800, rent: 300, houseCost: 1500 },
@@ -1488,8 +1488,8 @@ function renderBoard() {
     } else {
       const iconText = cellData.icon || cellData.name;
       cell.innerHTML += `
-        <div class="cell-icon" style="font-size:2cqw;font-weight:800;letter-spacing:0.05em;">${iconText}</div>
-        <div class="cell-name" style="font-size:1.6cqw;">${cellData.name}</div>
+        <div class="cell-icon" style="font-size:2.6cqw;font-weight:800;letter-spacing:0.05em;">${iconText}</div>
+        <div class="cell-name" style="font-size:2cqw;">${cellData.name}</div>
       `;
     }
 
